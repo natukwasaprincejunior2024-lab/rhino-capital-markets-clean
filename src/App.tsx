@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import AuthScreen from '@/components/AuthScreen';
 import Dashboard from '@/components/Dashboard';
@@ -8,13 +9,20 @@ import { useAuth } from '@/lib/auth-context';
 
 function App() {
   const { user, loading } = useAuth();
+  const [forceShow, setForceShow] = useState(false);
+
+  // If loading hangs, force show Login after 3 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => setForceShow(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const boardToken = getBoardTokenFromPath(window.location.pathname);
   if (boardToken) return <PublicDisplayPage token={boardToken} />;
 
   if (window.location.pathname === '/pricing') return <PricingPage />;
 
-  if (loading) {
+  if (loading && !forceShow) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <Loader2 size={28} className="animate-spin text-brand" />
