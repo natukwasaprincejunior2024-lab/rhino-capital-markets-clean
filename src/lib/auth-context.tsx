@@ -48,18 +48,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setLoading(false);
-    });
+
+    // SAFETY TIMER - THIS IS THE FIX: Never stay on dark screen more than 2.5s
+    const safetyTimer = setTimeout(() => {
+      if (active) setLoading(false);
+    }, 2500);
+
+    const init = async () => {
+      try {
+        // If no real Supabase keys in Netlify, show login immediately
+        if (!import.meta.env.VITE_SUPABASE_URL) {
+          if (active) setLoading(false);
+          return;
+        }
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setSession(data.session);
+        setLoading(false);
+        clearTimeout(safetyTimer);
+      } catch (err) {
+        console.warn('Auth init failed, showing login:', err);
+        if (active) setLoading(false);
+      }
+    };
+
+    init();
+
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
-      (async () => {
-        if (active) setSession(next);
-      })();
+      if (active) {
+        setSession(next);
+        setLoading(false);
+      }
     });
+
     return () => {
       active = false;
+      clearTimeout(safetyTimer);
       subscription.subscription.unsubscribe();
     };
   }, []);
